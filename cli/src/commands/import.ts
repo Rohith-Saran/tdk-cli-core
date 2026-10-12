@@ -4,10 +4,11 @@ import { type SpawnOptions, spawn } from "node:child_process";
 import { Command } from "commander";
 
 /**
- * The importer lives in its own repo so detectors can ship without a CLI release. Until it is
- * published to npm it is run from git; `TDK_IMPORT_PACKAGE` overrides the package spec.
+ * The importer lives in its own repo so it can ship without a CLI release, and is run from npm at a
+ * pinned version so a push to its main branch cannot change what `tdk import` does. Move the pin
+ * when a new importer is published. `TDK_IMPORT_PACKAGE` overrides the package spec.
  */
-export const IMPORT_PACKAGE = "github:tdk-landscape/tdk-import";
+export const IMPORT_PACKAGE = "@tdk-landscape/tdk-import@0.2.1";
 
 type SpawnFn = (command: string, args: string[], options: SpawnOptions) => ReturnType<typeof spawn>;
 
@@ -43,8 +44,8 @@ export function runImport(args: string[], spawnFn: SpawnFn = spawn): Promise<num
 }
 
 export const importCommand = new Command("import")
-  .description("Import the services a directory describes (runs tdk-import)")
-  .argument("[args...]", "Passed to tdk-import: [dir] --dry-run --yes --force --only <ids>")
+  .description("Import the services in a directory's root docker-compose.yml (runs tdk-import)")
+  .argument("[args...]", "Passed to tdk-import: [dir] --dry-run --yes --force")
   .allowUnknownOption()
   .helpOption(false)
   .action(async (args: string[]) => {

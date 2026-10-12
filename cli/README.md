@@ -180,7 +180,7 @@ The frontend provider owns root `index.html` and starter source. After TDK gener
 |---------|-------------|
 | `tdk ui [--high-contrast] [--no-animations]` | 🎨 Interactive terminal UI |
 | `tdk networks` | 🌐 Show Traefik-routed URLs (`--stack`, `--json`, `--raw`) |
-| `tdk import [dir]` | 📥 Import the services a directory describes (`--dry-run`, `--yes`, `--force`) |
+| `tdk import [dir]` | 📥 Import the services in a directory's root `docker-compose.yml` (`--dry-run`, `--yes`, `--force`) |
 | `tdk eject` | 🚪 Write `EJECTED.md` describing the generated Tilt files; copies nothing (`--dry-run`, `--yes`) |
 | `tdk mcp` | 🤖 Run a Model Context Protocol server over stdio for coding agents |
 | `tdk config regenerate` | ♻️ Regenerate master config files from `.tdk/project.json` |
@@ -408,7 +408,7 @@ tdk eject --help
 tdk import --help
 ```
 
-To bring an existing repo in (Procfile, Compose, Dockerfile, `package.json`), `tdk import` runs [tdk-import](https://github.com/tdk-landscape/tdk-import) (it needs `npx`). Flags such as `--dry-run`, `--yes`, `--force` and `--only` go straight to it.
+To bring an existing Compose repo in, `tdk import` runs [tdk-import](https://github.com/tdk-landscape/tdk-import) on the root `docker-compose.yml` (it needs `npx`). Flags `--dry-run`, `--yes` and `--force` go straight to it.
 
 ---
 

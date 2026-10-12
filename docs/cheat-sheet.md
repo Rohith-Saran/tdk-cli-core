@@ -81,7 +81,7 @@ tdk version                 # aliases: tdk v, tdk -v, tdk --version
 | --- | --- | --- |
 | `tdk project [template]` | | Create or check the project's master configs, or clone a starter |
 | `tdk projects` | `info` | Show project info and config status |
-| `tdk import [dir]` | | Import the services a directory describes |
+| `tdk import [dir]` | | Import the services in a directory's root `docker-compose.yml` |
 | `tdk eject` | | Write `EJECTED.md` describing the generated Tilt files |
 | `tdk resource [name]` | | Create a resource, or register an existing one |
 | `tdk resources` | | List resources |
@@ -135,12 +135,11 @@ Creates `TILT_RESOURCE_DEFAULTS.star` and `TILT_TECH_STACK.star`, among others. 
 
 ### `tdk import [dir]`
 
-Scan a directory (default `.`) and write `service.json` files for what it finds.
+Read the root `docker-compose.yml` of a directory (default `.`) and write one bring-your-own `service.json` per Compose service. Other Compose file names, override files, Dockerfiles and `package.json` are not read, and the plan names what was not translated.
 
 ```bash
 tdk import --dry-run                 # print the plan, write nothing
 tdk import ./legacy --yes
-tdk import --only compose,dockerfile
 ```
 
 | Flag | Effect |
@@ -148,7 +147,6 @@ tdk import --only compose,dockerfile
 | `--dry-run` | Print the plan and write nothing |
 | `--yes` | Write without prompting |
 | `--force` | Overwrite an existing `service.json` |
-| `--only <ids>` | Comma-separated detectors: `compose`, `dockerfile`, `package-json`, `procfile` |
 
 See [gradual adoption](gradual-adoption.md) and [adopt TDK](adopt-tdk.md).
 

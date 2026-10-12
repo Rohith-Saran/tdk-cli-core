@@ -19,12 +19,23 @@ function fakeSpawn(outcome: { code?: number | null; error?: Error }) {
 
 describe("tdk import", () => {
   it("forwards every argument, including flags, to tdk-import", () => {
-    const inv = importInvocation([".", "--dry-run", "--only", "procfile"], {}, "linux");
+    const inv = importInvocation([".", "--dry-run", "--force"], {}, "linux");
     expect(inv).toEqual({
       command: "npx",
-      args: ["--yes", IMPORT_PACKAGE, ".", "--dry-run", "--only", "procfile"],
+      args: ["--yes", IMPORT_PACKAGE, ".", "--dry-run", "--force"],
       shell: false,
     });
+  });
+
+  it("runs the importer from npm at an exact version, not from a git branch", () => {
+    expect(IMPORT_PACKAGE).toMatch(/^@tdk-landscape\/tdk-import@\d+\.\d+\.\d+$/);
+  });
+
+  it("advertises only flags the importer has", () => {
+    const help = importCommand.registeredArguments.map((a) => a.description).join(" ");
+    expect(help).toContain("--dry-run --yes --force");
+    expect(help).not.toContain("--only");
+    expect(importCommand.description()).not.toMatch(/procfile|dockerfile|package\.json/i);
   });
 
   it("honours TDK_IMPORT_PACKAGE and uses npx.cmd on Windows", () => {

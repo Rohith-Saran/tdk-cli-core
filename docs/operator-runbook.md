@@ -41,22 +41,18 @@ For a file-by-file guide to service outputs, see [Generated service files](gener
 
 ## Importing an existing repo
 
-TDK CLI core 1.3.104 is the first release with `buildContext` ([tdk-cli-core#525](https://github.com/tdk-landscape/tdk-cli-core/pull/525), [release 1.3.104](https://github.com/tdk-landscape/tdk-cli-releases/releases/tag/v1.3.104)). Use core 1.3.104 or later before starting imported services. The importer does not detect or enforce the installed core version.
+`tdk import` runs the published importer, [`@tdk-landscape/tdk-import`](https://www.npmjs.com/package/@tdk-landscape/tdk-import), at the exact version pinned in `cli/src/commands/import.ts` (`IMPORT_PACKAGE`). `TDK_IMPORT_PACKAGE` overrides it. When a new importer is published, move the pin in a CLI release.
 
-Importer **0.1.1** is the published safeguard release containing [tdk-import#9](https://github.com/tdk-landscape/tdk-import/pull/9) and the documentation from [tdk-import#10](https://github.com/tdk-landscape/tdk-import/pull/10). The published npm tarball has been verified for unsupported-only refusal, dry-run without a plan, and partial Procfile imports. Use the pinned version below; 0.1.0 does not include those guarantees.
-
-Preview the services an existing repository describes, then write the generated manifests:
+It reads one file, the root `docker-compose.yml`, and writes one bring-your-own `service.json` per Compose service, plus `.tdk/project.json` if the directory is not a TDK project. It does not read other Compose file names, override files, Dockerfiles, `package.json` or Procfiles, and it names what it did not translate. See the importer's [import.md](https://github.com/tdk-landscape/tdk-import/blob/main/docs/import.md) for the mapping.
 
 ```bash
-npx -y @tdk-landscape/tdk-import@0.1.1 <dir> --dry-run
-npx -y @tdk-landscape/tdk-import@0.1.1 <dir> --yes
+tdk import <dir> --dry-run
+tdk import <dir> --yes
 ```
 
-If core 1.3.104 or later is not installed, update TDK before running `tdk up`; older releases cannot build imported services that use `buildContext`. Start the imported stack with `tdk up <stack>` only with core 1.3.104 or later installed.
+Start the imported stack with TDK core **1.3.145 or later**. 1.3.104 added `buildContext` ([tdk-cli-core#525](https://github.com/tdk-landscape/tdk-cli-core/pull/525)); 1.3.145 generates the Tiltfile for a project that has `.tdk/project.json` but none yet ([tdk-cli-core#1018](https://github.com/tdk-landscape/tdk-cli-core/pull/1018)). The importer does not detect or enforce the installed core version, and `tdk import` does not check it either.
 
-Helm (`Chart.yaml`) and Kustomize (`kustomization.yaml`) files are not imported. The command refuses a directory that contains only those files. Supported Compose, Dockerfile, `package.json` script, and Procfile services are still imported when those files appear alongside Helm or Kustomize files.
-
-For Procfiles, commands beginning with `node`, `npm`, `pnpm`, `yarn`, or `bun` are eligible for Dockerfile scaffolding. Other processes, including Python, Ruby, Gunicorn, and Poetry, are skipped unless a matching Dockerfile or image exists. The importer can write buildable processes from a mixed Procfile and reports each skipped process; add a Dockerfile or image to import it.
+Put the environment values the services need in the project `.env`; values in the Compose file are never copied. Evidence of the importer running through a real `tdk up`: [#1007](https://github.com/tdk-landscape/tdk-cli-core/issues/1007).
 
 ## Cutting a release
 

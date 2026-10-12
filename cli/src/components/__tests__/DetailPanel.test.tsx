@@ -128,8 +128,8 @@ describe("DetailPanel", () => {
         visible: true,
       });
 
-      expect(output).toMatch(new RegExp(`Type:\\s+${label}`));
-      expect(output).not.toMatch(new RegExp(`Type:\\s+${other}`));
+      expect(output).toContain(`Type: ${label}`);
+      expect(output).not.toContain(`Type: ${other}`);
     });
 
     it("shows unknown when the service has no stack", async () => {
