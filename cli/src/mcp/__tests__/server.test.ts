@@ -71,7 +71,7 @@ describe("mcp server", () => {
     expect((await call({ jsonrpc: "2.0", id: 2, method: "ping" })).result).toEqual({});
     const list = await call({ jsonrpc: "2.0", id: 3, method: "tools/list" });
     const result = list.result as ToolsListResult;
-    expect(result.tools.map((t: { name: string }) => t.name)).toEqual(["echo", "boom"]);
+    expect(result.tools.map((t) => t.name)).toEqual(["echo", "boom"]);
     expect(result.tools[0].handler).toBeUndefined();
   });
   it("calls a tool and returns text plus structured content", async () => {
