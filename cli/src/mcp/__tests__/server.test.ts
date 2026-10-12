@@ -17,9 +17,24 @@ const boom: McpTool = {
 const server = createMcpServer([echo, boom], { name: "tdk", version: "1.0.0" });
 
 interface Response {
-  // biome-ignore lint/suspicious/noExplicitAny: tests read arbitrary result shapes
-  result: any;
+  result: unknown;
   error: { code: number; message: string };
+}
+
+interface InitializeResult {
+  protocolVersion: string;
+  capabilities: { tools: { listChanged: boolean } };
+  serverInfo: { name: string; version: string };
+}
+
+interface ToolsListResult {
+  tools: Array<{ name: string; handler?: unknown }>;
+}
+
+interface ToolCallResult {
+  isError: boolean;
+  content: Array<{ text: string }>;
+  structuredContent?: unknown;
 }
 
 async function call(message: unknown): Promise<Response> {
@@ -35,9 +50,10 @@ describe("mcp server", () => {
       method: "initialize",
       params: { protocolVersion: "2025-03-26" },
     });
-    expect(res.result.protocolVersion).toBe("2025-03-26");
-    expect(res.result.capabilities).toEqual({ tools: { listChanged: false } });
-    expect(res.result.serverInfo).toEqual({ name: "tdk", version: "1.0.0" });
+    const result = res.result as InitializeResult;
+    expect(result.protocolVersion).toBe("2025-03-26");
+    expect(result.capabilities).toEqual({ tools: { listChanged: false } });
+    expect(result.serverInfo).toEqual({ name: "tdk", version: "1.0.0" });
   });
   it("falls back to its newest version for an unknown one", async () => {
     const res = await call({
@@ -46,7 +62,7 @@ describe("mcp server", () => {
       method: "initialize",
       params: { protocolVersion: "1999-01-01" },
     });
-    expect(res.result.protocolVersion).toBe("2025-06-18");
+    expect((res.result as InitializeResult).protocolVersion).toBe("2025-06-18");
   });
   it("sends no reply to notifications", async () => {
     expect(await call({ jsonrpc: "2.0", method: "notifications/initialized" })).toBeNull();
@@ -54,8 +70,9 @@ describe("mcp server", () => {
   it("answers ping and lists tools without their handlers", async () => {
     expect((await call({ jsonrpc: "2.0", id: 2, method: "ping" })).result).toEqual({});
     const list = await call({ jsonrpc: "2.0", id: 3, method: "tools/list" });
-    expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual(["echo", "boom"]);
-    expect(list.result.tools[0].handler).toBeUndefined();
+    const result = list.result as ToolsListResult;
+    expect(result.tools.map((t: { name: string }) => t.name)).toEqual(["echo", "boom"]);
+    expect(result.tools[0].handler).toBeUndefined();
   });
   it("calls a tool and returns text plus structured content", async () => {
     const res = await call({
@@ -64,9 +81,10 @@ describe("mcp server", () => {
       method: "tools/call",
       params: { name: "echo", arguments: { a: 1 } },
     });
-    expect(res.result.isError).toBe(false);
-    expect(res.result.structuredContent).toEqual({ got: { a: 1 } });
-    expect(JSON.parse(res.result.content[0].text)).toEqual({ got: { a: 1 } });
+    const result = res.result as ToolCallResult;
+    expect(result.isError).toBe(false);
+    expect(result.structuredContent).toEqual({ got: { a: 1 } });
+    expect(JSON.parse(result.content[0].text)).toEqual({ got: { a: 1 } });
   });
   it("turns a thrown handler error into an error result, not a protocol error", async () => {
     const res = await call({
