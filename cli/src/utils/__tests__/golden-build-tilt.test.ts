@@ -123,7 +123,7 @@ exit 0
 }
 
 describe.skipIf(!hasTilt)("golden layer build script", () => {
-  const script = generatedGoldenScript();
+  const script = hasTilt ? generatedGoldenScript() : "";
 
   it("checks every golden tag for the matching hash label and skips the build when they all match", () => {
     const run = runGolden(script, { labelMatches: true });

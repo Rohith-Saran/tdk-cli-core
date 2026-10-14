@@ -2,7 +2,7 @@
   "name": "TDK CLI Core contributor",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/bun:1": {
+    "ghcr.io/devcontainers-extra/features/bun:1": {
       "version": "latest"
     }
   },
