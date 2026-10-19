@@ -17,7 +17,7 @@ import { promptConfirm } from "../utils/prompt.js";
 import { startSpinner } from "../utils/spinner.js";
 import { extractTarball } from "../utils/tar.js";
 import { findAllOnPath, findOnPath } from "../utils/which.js";
-function isStandaloneBinary(tdkPath) {
+export function isStandaloneBinary(tdkPath) {
     if (isWindows() && tdkPath.toLowerCase().endsWith(".exe"))
         return true;
     try {
@@ -47,7 +47,7 @@ export function windowsNpmUpgradeMessage(platformName, installInfo) {
         ? "use npm install -g @tdk-landscape/tdk-cli-core@latest"
         : null;
 }
-function detectInstallation() {
+export function detectInstallation() {
     const runningPath = process.execPath;
     const runningInstall = classifyRunningInstall(runningPath, process.argv[1] ?? "");
     if (runningInstall)
@@ -89,7 +89,7 @@ function detectInstallation() {
         return { method: "unknown" };
     }
 }
-function detectInstallationForPath(tdkPath) {
+export function detectInstallationForPath(tdkPath) {
     try {
         const realPath = realpathSync(tdkPath);
         if (realPath.includes("tdk-cli")) {
@@ -109,7 +109,7 @@ function detectInstallationForPath(tdkPath) {
     }
     return { method: "unknown", path: tdkPath };
 }
-function detectAllInstallations() {
+export function detectAllInstallations() {
     const candidates = findAllOnPath(executableName()).map(detectInstallationForPath);
     const current = detectInstallation();
     if (current.method !== "unknown")
@@ -160,7 +160,7 @@ function verifyChecksum(filePath, assetName, sums, required) {
         throw new Error(`${isWindows() ? "checksum mismatch" : "Checksum mismatch"} for ${assetName} (expected ${expected}, got ${actual})`);
     }
 }
-async function getLatestBinaryRelease() {
+export async function getLatestBinaryRelease() {
     const assetName = binaryAssetName();
     if (!assetName)
         return null;
@@ -186,7 +186,7 @@ async function getLatestBinaryRelease() {
         return null;
     }
 }
-function isPermissionError(err) {
+export function isPermissionError(err) {
     const code = err?.code;
     return code === "EACCES" || code === "EPERM";
 }
@@ -302,7 +302,7 @@ export async function upgradeViaBinary(tdkPath, release) {
         rmSync(tempDir, { recursive: true, force: true });
     }
 }
-function getCurrentVersion() {
+export function getCurrentVersion() {
     try {
         return getPackageVersion();
     }
@@ -311,7 +311,7 @@ function getCurrentVersion() {
         return "unknown";
     }
 }
-async function getLatestVersion() {
+export async function getLatestVersion() {
     const spinner = startSpinner("Checking for latest version...");
     try {
         let result;
@@ -395,7 +395,7 @@ export async function upgradeViaBun() {
         return false;
     }
 }
-async function upgradeAllInstallations(dryRun) {
+export async function upgradeAllInstallations(dryRun) {
     const installations = detectAllInstallations();
     if (!installations.length) {
         console.error(chalk.red("Could not find any TDK installations on PATH."));
@@ -461,7 +461,7 @@ async function upgradeAllInstallations(dryRun) {
         console.error(chalk.red("\nAt least one TDK installation could not be updated."));
     return success;
 }
-async function upgradeViaGit(path) {
+export async function upgradeViaGit(path) {
     const spinner = startSpinner("Updating the git installation from the default branch...");
     let rebaseInProgress = false;
     try {
@@ -559,29 +559,158 @@ async function upgradeViaGit(path) {
         return false;
     }
 }
-export const upgradeCommand = new Command("upgrade")
-    .alias("update")
-    .description("Upgrade TDK CLI to the latest version")
-    .option("-f, --force", "Force upgrade even if already on latest", false)
-    .option("--all", "Upgrade every TDK installation found on PATH", false)
-    .option("--dry-run", "Show what would be upgraded without actually doing it", false)
-    .option("-y, --yes", "Skip confirmation prompt", false)
-    .action(async (options) => {
-    console.log(chalk.cyan("🚀 TDK CLI Upgrade\n"));
-    const currentVersion = getCurrentVersion();
-    console.log(chalk.gray(`Current version: ${currentVersion}`));
-    const installInfo = detectInstallation();
-    console.log(chalk.gray(`Installation method: ${installInfo.method}`));
-    console.log();
-    if (options.all) {
-        const installations = detectAllInstallations();
-        if (!installations.length) {
-            console.error(chalk.red("Could not find any TDK installations on PATH."));
+export function createUpgradeCommand() {
+    return new Command("upgrade")
+        .alias("update")
+        .description("Upgrade TDK CLI to the latest version")
+        .option("-f, --force", "Force upgrade even if already on latest", false)
+        .option("--all", "Upgrade every TDK installation found on PATH", false)
+        .option("--dry-run", "Show what would be upgraded without actually doing it", false)
+        .option("-y, --yes", "Skip confirmation prompt", false)
+        .action(async (options) => {
+        console.log(chalk.cyan("🚀 TDK CLI Upgrade\n"));
+        const currentVersion = getCurrentVersion();
+        console.log(chalk.gray(`Current version: ${currentVersion}`));
+        const installInfo = detectInstallation();
+        console.log(chalk.gray(`Installation method: ${installInfo.method}`));
+        console.log();
+        if (options.all) {
+            const installations = detectAllInstallations();
+            if (!installations.length) {
+                console.error(chalk.red("Could not find any TDK installations on PATH."));
+                process.exit(1);
+            }
+            if (!options.dryRun && !options.yes) {
+                const confirm = await promptConfirm({
+                    message: `Upgrade all ${installations.length} TDK installations on PATH?`,
+                    initial: true,
+                });
+                if (!confirm) {
+                    showCancelled();
+                    process.exit(0);
+                }
+            }
+            const success = await upgradeAllInstallations(options.dryRun);
+            if (!success)
+                process.exit(1);
+            return;
+        }
+        const windowsNpmMessage = windowsNpmUpgradeMessage(process.platform, installInfo);
+        if (windowsNpmMessage) {
+            console.log(windowsNpmMessage);
+            return;
+        }
+        if (installInfo.method === "unknown") {
+            console.error(chalk.red("Could not detect installation method"));
+            console.log(chalk.yellow("\nManual upgrade using a published package:"));
+            console.log(chalk.cyan("   npm install -g @tdk-landscape/tdk-cli-core@latest"));
+            console.log(chalk.cyan("   bun install -g @tdk-landscape/tdk-cli-core@latest"));
+            console.log(chalk.cyan("   git:  cd /path/to/tdk-cli && git pull && bun link --force"));
             process.exit(1);
         }
-        if (!options.dryRun && !options.yes) {
+        let latestVersion = null;
+        let binaryRelease = null;
+        if (installInfo.method === "binary" && installInfo.path) {
+            console.log(chalk.blue("📦 Standalone binary installation detected"));
+            binaryRelease = await getLatestBinaryRelease();
+            if (!binaryRelease) {
+                if (process.platform === "win32" && process.arch === "arm64") {
+                    showErrorAndExit("TDK Windows v1 supports AMD64 only. Use WSL2 Ubuntu or a 64-bit Intel/AMD PC.");
+                }
+                if (process.platform === "win32") {
+                    showErrorAndExit("No Windows AMD64 binary in this TDK release. Need asset tdk-windows-amd64.exe.");
+                }
+                showErrorAndExit(`Unsupported OS: TDK does not support this OS: ${process.platform}. Supported: linux, darwin, win32.`);
+            }
+            latestVersion = binaryRelease.tag.replace(/^v/, "").split("-")[0];
+            if (latestVersion === currentVersion && !options.force) {
+                console.log(chalk.green("\n✅ You are already on the latest version!"));
+                console.log(chalk.gray(`   ${currentVersion} (current) = ${latestVersion} (latest)`));
+                process.exit(0);
+            }
+            if (latestVersion !== currentVersion) {
+                console.log(chalk.yellow(`\n⬆️  Upgrade available: ${currentVersion} → ${latestVersion}`));
+            }
+            else if (options.force) {
+                console.log(chalk.yellow(`\n🔄 Force upgrade requested (currently ${currentVersion})`));
+            }
+        }
+        else if (installInfo.method === "git" && installInfo.path) {
+            console.log(chalk.blue("📦 Git installation detected - will update from origin's default branch"));
+            try {
+                execFileSync("git", ["fetch", "origin"], { cwd: installInfo.path, stdio: "pipe" });
+                const localHash = execFileSync("git", ["rev-parse", "HEAD"], {
+                    cwd: installInfo.path,
+                    encoding: "utf-8",
+                }).trim();
+                const remoteHash = execFileSync("git", ["rev-parse", "origin/main"], {
+                    cwd: installInfo.path,
+                    encoding: "utf-8",
+                }).trim();
+                if (localHash === remoteHash && !options.force) {
+                    console.log(chalk.green("\n✅ Already up to date with origin/main!"));
+                    console.log(chalk.gray(`   Current: ${localHash.substring(0, 7)}`));
+                    console.log(chalk.gray("\n   Tip: Use --force to pull and rebuild anyway"));
+                    process.exit(0);
+                }
+                if (localHash !== remoteHash) {
+                    console.log(chalk.yellow(`\n⬆️  Updates available:`));
+                    console.log(chalk.gray(`   Local:  ${localHash.substring(0, 7)}`));
+                    console.log(chalk.gray(`   Remote: ${remoteHash.substring(0, 7)}`));
+                }
+                else {
+                    console.log(chalk.yellow(`\n🔄 Force upgrade requested`));
+                }
+                latestVersion = remoteHash.substring(0, 7);
+            }
+            catch (err) {
+                console.warn(chalk.yellow("⚠️  Could not check git remote, will attempt upgrade anyway"));
+                logVerbose("Git remote check failed", err);
+                latestVersion = "latest";
+            }
+        }
+        else {
+            latestVersion = await getLatestVersion();
+            if (!latestVersion) {
+                showErrorAndExit("Could not determine latest version");
+            }
+            if (currentVersion === latestVersion && !options.force) {
+                console.log(chalk.green("\n✅ You are already on the latest version!"));
+                console.log(chalk.gray(`   ${currentVersion} (current) = ${latestVersion} (latest)`));
+                process.exit(0);
+            }
+            if (currentVersion !== latestVersion) {
+                console.log(chalk.yellow(`\n⬆️  Upgrade available: ${currentVersion} → ${latestVersion}`));
+            }
+            else if (options.force) {
+                console.log(chalk.yellow(`\n🔄 Force upgrade requested (currently ${currentVersion})`));
+            }
+        }
+        // The plan is a method and action list, not the standard pair, so it supplies its own printer.
+        if (handleDryRun(options, "", "", () => {
+            console.log(chalk.blue("\n📋 Dry run mode - would perform:"));
+            console.log(chalk.gray(`   Method: ${installInfo.method}`));
+            if (installInfo.path) {
+                console.log(chalk.gray(`   Path: ${installInfo.path}`));
+            }
+            if (installInfo.method === "git") {
+                console.log(chalk.gray("   Action: fetch origin, update from origin/HEAD, rebuild, and relink"));
+            }
+            else if (installInfo.method === "binary" && binaryRelease) {
+                console.log(chalk.gray(`   Action: Download and replace with ${binaryRelease.downloadUrl}`));
+                console.log(chalk.gray(`   Action: Refresh bundled engine from ${binaryRelease.engineDownloadUrl}`));
+            }
+            else {
+                console.log(chalk.gray(`   Action: Upgrade to ${latestVersion}`));
+            }
+            console.log(chalk.yellow("\n   (Not actually upgrading due to --dry-run)"));
+        })) {
+            process.exit(0);
+        }
+        if (!options.yes) {
+            console.log();
             const confirm = await promptConfirm({
-                message: `Upgrade all ${installations.length} TDK installations on PATH?`,
+                message: "Proceed with upgrade?",
                 initial: true,
             });
             if (!confirm) {
@@ -589,228 +718,102 @@ export const upgradeCommand = new Command("upgrade")
                 process.exit(0);
             }
         }
-        const success = await upgradeAllInstallations(options.dryRun);
-        if (!success)
+        else {
+            console.log(chalk.gray("⚡ Auto-confirming (--yes flag)\n"));
+        }
+        console.log();
+        let success = false;
+        switch (installInfo.method) {
+            case "npm":
+                success = await upgradeViaNpm();
+                break;
+            case "bun":
+                success = await upgradeViaBun();
+                break;
+            case "git":
+                if (installInfo.path) {
+                    success = await upgradeViaGit(installInfo.path);
+                }
+                break;
+            case "binary":
+                if (installInfo.path && binaryRelease) {
+                    success = await upgradeViaBinary(installInfo.path, binaryRelease);
+                }
+                break;
+        }
+        if (!success) {
+            console.error(chalk.red("\nUpgrade failed"));
+            if (installInfo.method === "git") {
+                console.log(chalk.cyan(`   Check local changes with: git -C ${installInfo.path} status --short`));
+                console.log(chalk.cyan("   Commit or stash them, then retry: tdk upgrade"));
+            }
+            else if (installInfo.method === "binary" && binaryRelease && installInfo.path) {
+                const engineDir = join(dirname(installInfo.path), "tdk-cli");
+                if (isWindows()) {
+                    console.log(chalk.cyan("   irm https://tdk-landscape.github.io/install.ps1 | iex"));
+                }
+                else {
+                    console.log(chalk.cyan(`   curl -fsSL -o ${installInfo.path} ${binaryRelease.downloadUrl}`));
+                    console.log(chalk.cyan(`   chmod +x ${installInfo.path}`));
+                    console.log(chalk.cyan(`   rm -rf ${engineDir} && mkdir -p ${engineDir}`));
+                    console.log(chalk.cyan(`   curl -fsSL ${binaryRelease.engineDownloadUrl} | tar -xzf - -C ${engineDir} --strip-components=1`));
+                }
+            }
             process.exit(1);
-        return;
-    }
-    const windowsNpmMessage = windowsNpmUpgradeMessage(process.platform, installInfo);
-    if (windowsNpmMessage) {
-        console.log(windowsNpmMessage);
-        return;
-    }
-    if (installInfo.method === "unknown") {
-        console.error(chalk.red("Could not detect installation method"));
-        console.log(chalk.yellow("\nManual upgrade using a published package:"));
-        console.log(chalk.cyan("   npm install -g @tdk-landscape/tdk-cli-core@latest"));
-        console.log(chalk.cyan("   bun install -g @tdk-landscape/tdk-cli-core@latest"));
-        console.log(chalk.cyan("   git:  cd /path/to/tdk-cli && git pull && bun link --force"));
-        process.exit(1);
-    }
-    let latestVersion = null;
-    let binaryRelease = null;
-    if (installInfo.method === "binary" && installInfo.path) {
-        console.log(chalk.blue("📦 Standalone binary installation detected"));
-        binaryRelease = await getLatestBinaryRelease();
-        if (!binaryRelease) {
-            if (process.platform === "win32" && process.arch === "arm64") {
-                showErrorAndExit("TDK Windows v1 supports AMD64 only. Use WSL2 Ubuntu or a 64-bit Intel/AMD PC.");
-            }
-            if (process.platform === "win32") {
-                showErrorAndExit("No Windows AMD64 binary in this TDK release. Need asset tdk-windows-amd64.exe.");
-            }
-            showErrorAndExit(`Unsupported OS: TDK does not support this OS: ${process.platform}. Supported: linux, darwin, win32.`);
         }
-        latestVersion = binaryRelease.tag.replace(/^v/, "").split("-")[0];
-        if (latestVersion === currentVersion && !options.force) {
-            console.log(chalk.green("\n✅ You are already on the latest version!"));
-            console.log(chalk.gray(`   ${currentVersion} (current) = ${latestVersion} (latest)`));
-            process.exit(0);
-        }
-        if (latestVersion !== currentVersion) {
-            console.log(chalk.yellow(`\n⬆️  Upgrade available: ${currentVersion} → ${latestVersion}`));
-        }
-        else if (options.force) {
-            console.log(chalk.yellow(`\n🔄 Force upgrade requested (currently ${currentVersion})`));
-        }
-    }
-    else if (installInfo.method === "git" && installInfo.path) {
-        console.log(chalk.blue("📦 Git installation detected - will update from origin's default branch"));
+        console.log();
+        const verifySpinner = startSpinner("Verifying upgrade...");
         try {
-            execFileSync("git", ["fetch", "origin"], { cwd: installInfo.path, stdio: "pipe" });
-            const localHash = execFileSync("git", ["rev-parse", "HEAD"], {
-                cwd: installInfo.path,
+            const newVersion = execFileSync(findOnPath(executableName()) ?? executableName(), ["version"], {
                 encoding: "utf-8",
+                windowsHide: isWindows(),
             }).trim();
-            const remoteHash = execFileSync("git", ["rev-parse", "origin/main"], {
-                cwd: installInfo.path,
-                encoding: "utf-8",
-            }).trim();
-            if (localHash === remoteHash && !options.force) {
-                console.log(chalk.green("\n✅ Already up to date with origin/main!"));
-                console.log(chalk.gray(`   Current: ${localHash.substring(0, 7)}`));
-                console.log(chalk.gray("\n   Tip: Use --force to pull and rebuild anyway"));
-                process.exit(0);
-            }
-            if (localHash !== remoteHash) {
-                console.log(chalk.yellow(`\n⬆️  Updates available:`));
-                console.log(chalk.gray(`   Local:  ${localHash.substring(0, 7)}`));
-                console.log(chalk.gray(`   Remote: ${remoteHash.substring(0, 7)}`));
+            verifySpinner.succeed(`Verified: now running ${chalk.green(newVersion)}`);
+            console.log();
+            console.log(chalk.green.bold("✨ Upgrade complete!"));
+            console.log(chalk.gray(`   Version: ${currentVersion} → ${newVersion}`));
+            console.log();
+            console.log(chalk.cyan.bold("📍 Installation Details:"));
+            if (installInfo.method === "git" && installInfo.path) {
+                console.log(chalk.gray(`   Location: ${installInfo.path}`));
+                console.log(chalk.gray(`   Method:   git clone + bun link`));
             }
             else {
-                console.log(chalk.yellow(`\n🔄 Force upgrade requested`));
+                console.log(chalk.gray(`   Method:   ${installInfo.method}`));
             }
-            latestVersion = remoteHash.substring(0, 7);
+            console.log(chalk.gray(`   Binary:   ${installInfo.path ?? findOnPath(executableName()) ?? "unknown"}`));
+            console.log();
+            console.log(chalk.cyan.bold("🚀 Quick Start:"));
+            console.log(chalk.white(`   tdk --help         Show all commands`));
+            console.log(chalk.white(`   tdk networks       View service URLs`));
+            console.log(chalk.white(`   tdk doctor         Check environment`));
+            if (newVersion === currentVersion && !options.force) {
+                console.log();
+                console.log(chalk.yellow("💡 Tip: Version appears unchanged. You may need to restart your terminal."));
+            }
+            console.log();
+            console.log(chalk.green("Happy coding! 🎉"));
         }
         catch (err) {
-            console.warn(chalk.yellow("⚠️  Could not check git remote, will attempt upgrade anyway"));
-            logVerbose("Git remote check failed", err);
-            latestVersion = "latest";
-        }
-    }
-    else {
-        latestVersion = await getLatestVersion();
-        if (!latestVersion) {
-            showErrorAndExit("Could not determine latest version");
-        }
-        if (currentVersion === latestVersion && !options.force) {
-            console.log(chalk.green("\n✅ You are already on the latest version!"));
-            console.log(chalk.gray(`   ${currentVersion} (current) = ${latestVersion} (latest)`));
-            process.exit(0);
-        }
-        if (currentVersion !== latestVersion) {
-            console.log(chalk.yellow(`\n⬆️  Upgrade available: ${currentVersion} → ${latestVersion}`));
-        }
-        else if (options.force) {
-            console.log(chalk.yellow(`\n🔄 Force upgrade requested (currently ${currentVersion})`));
-        }
-    }
-    // The plan is a method and action list, not the standard pair, so it supplies its own printer.
-    if (handleDryRun(options, "", "", () => {
-        console.log(chalk.blue("\n📋 Dry run mode - would perform:"));
-        console.log(chalk.gray(`   Method: ${installInfo.method}`));
-        if (installInfo.path) {
-            console.log(chalk.gray(`   Path: ${installInfo.path}`));
-        }
-        if (installInfo.method === "git") {
-            console.log(chalk.gray("   Action: fetch origin, update from origin/HEAD, rebuild, and relink"));
-        }
-        else if (installInfo.method === "binary" && binaryRelease) {
-            console.log(chalk.gray(`   Action: Download and replace with ${binaryRelease.downloadUrl}`));
-            console.log(chalk.gray(`   Action: Refresh bundled engine from ${binaryRelease.engineDownloadUrl}`));
-        }
-        else {
-            console.log(chalk.gray(`   Action: Upgrade to ${latestVersion}`));
-        }
-        console.log(chalk.yellow("\n   (Not actually upgrading due to --dry-run)"));
-    })) {
-        process.exit(0);
-    }
-    if (!options.yes) {
-        console.log();
-        const confirm = await promptConfirm({
-            message: "Proceed with upgrade?",
-            initial: true,
-        });
-        if (!confirm) {
-            showCancelled();
-            process.exit(0);
-        }
-    }
-    else {
-        console.log(chalk.gray("⚡ Auto-confirming (--yes flag)\n"));
-    }
-    console.log();
-    let success = false;
-    switch (installInfo.method) {
-        case "npm":
-            success = await upgradeViaNpm();
-            break;
-        case "bun":
-            success = await upgradeViaBun();
-            break;
-        case "git":
-            if (installInfo.path) {
-                success = await upgradeViaGit(installInfo.path);
-            }
-            break;
-        case "binary":
-            if (installInfo.path && binaryRelease) {
-                success = await upgradeViaBinary(installInfo.path, binaryRelease);
-            }
-            break;
-    }
-    if (!success) {
-        console.error(chalk.red("\nUpgrade failed"));
-        if (installInfo.method === "git") {
-            console.log(chalk.cyan(`   Check local changes with: git -C ${installInfo.path} status --short`));
-            console.log(chalk.cyan("   Commit or stash them, then retry: tdk upgrade"));
-        }
-        else if (installInfo.method === "binary" && binaryRelease && installInfo.path) {
-            const engineDir = join(dirname(installInfo.path), "tdk-cli");
-            if (isWindows()) {
-                console.log(chalk.cyan("   irm https://tdk-landscape.github.io/install.ps1 | iex"));
+            verifySpinner.warn("Could not verify new version");
+            console.error(chalk.red(`Verification error: ${getErrorMessage(err)}`));
+            console.log();
+            console.log(chalk.yellow("⚠️  Upgrade status unknown - verification failed"));
+            console.log();
+            if (isPermissionError(err) && installInfo.method !== "git" && installInfo.path) {
+                console.log(chalk.yellow("💡 The installed binary isn't executable. Fix it with:"));
+                console.log(chalk.cyan(`   chmod +x ${installInfo.path}`));
+                console.log(chalk.white("   then run: tdk version"));
             }
             else {
-                console.log(chalk.cyan(`   curl -fsSL -o ${installInfo.path} ${binaryRelease.downloadUrl}`));
-                console.log(chalk.cyan(`   chmod +x ${installInfo.path}`));
-                console.log(chalk.cyan(`   rm -rf ${engineDir} && mkdir -p ${engineDir}`));
-                console.log(chalk.cyan(`   curl -fsSL ${binaryRelease.engineDownloadUrl} | tar -xzf - -C ${engineDir} --strip-components=1`));
+                console.log(chalk.yellow("💡 Verify manually:"));
+                console.log(chalk.white("   1. Restart your terminal"));
+                console.log(chalk.white("   2. Run: tdk version"));
+                if (installInfo.method === "git" && installInfo.path) {
+                    console.log(chalk.white(`   3. Compare with: git -C ${installInfo.path} rev-parse HEAD`));
+                }
             }
         }
-        process.exit(1);
-    }
-    console.log();
-    const verifySpinner = startSpinner("Verifying upgrade...");
-    try {
-        const newVersion = execFileSync(findOnPath(executableName()) ?? executableName(), ["version"], {
-            encoding: "utf-8",
-            windowsHide: isWindows(),
-        }).trim();
-        verifySpinner.succeed(`Verified: now running ${chalk.green(newVersion)}`);
-        console.log();
-        console.log(chalk.green.bold("✨ Upgrade complete!"));
-        console.log(chalk.gray(`   Version: ${currentVersion} → ${newVersion}`));
-        console.log();
-        console.log(chalk.cyan.bold("📍 Installation Details:"));
-        if (installInfo.method === "git" && installInfo.path) {
-            console.log(chalk.gray(`   Location: ${installInfo.path}`));
-            console.log(chalk.gray(`   Method:   git clone + bun link`));
-        }
-        else {
-            console.log(chalk.gray(`   Method:   ${installInfo.method}`));
-        }
-        console.log(chalk.gray(`   Binary:   ${installInfo.path ?? findOnPath(executableName()) ?? "unknown"}`));
-        console.log();
-        console.log(chalk.cyan.bold("🚀 Quick Start:"));
-        console.log(chalk.white(`   tdk --help         Show all commands`));
-        console.log(chalk.white(`   tdk networks       View service URLs`));
-        console.log(chalk.white(`   tdk doctor         Check environment`));
-        if (newVersion === currentVersion && !options.force) {
-            console.log();
-            console.log(chalk.yellow("💡 Tip: Version appears unchanged. You may need to restart your terminal."));
-        }
-        console.log();
-        console.log(chalk.green("Happy coding! 🎉"));
-    }
-    catch (err) {
-        verifySpinner.warn("Could not verify new version");
-        console.error(chalk.red(`Verification error: ${getErrorMessage(err)}`));
-        console.log();
-        console.log(chalk.yellow("⚠️  Upgrade status unknown - verification failed"));
-        console.log();
-        if (isPermissionError(err) && installInfo.method !== "git" && installInfo.path) {
-            console.log(chalk.yellow("💡 The installed binary isn't executable. Fix it with:"));
-            console.log(chalk.cyan(`   chmod +x ${installInfo.path}`));
-            console.log(chalk.white("   then run: tdk version"));
-        }
-        else {
-            console.log(chalk.yellow("💡 Verify manually:"));
-            console.log(chalk.white("   1. Restart your terminal"));
-            console.log(chalk.white("   2. Run: tdk version"));
-            if (installInfo.method === "git" && installInfo.path) {
-                console.log(chalk.white(`   3. Compare with: git -C ${installInfo.path} rev-parse HEAD`));
-            }
-        }
-    }
-});
+    });
+}
+export const upgradeCommand = createUpgradeCommand();
