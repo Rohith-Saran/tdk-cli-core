@@ -8,8 +8,9 @@ import { fileURLToPath } from "node:url";
 import chalk from "chalk";
 import { Command } from "commander";
 import { generateMasterConfigs, readProjectConfig } from "../generator/template-engine.js";
-import type { ProjectConfig } from "../types/index.js";
+import type { DiscoveredResource, ProjectConfig } from "../types/index.js";
 import { MASTER_CONFIG_FILES, PROJECT_JSON } from "../utils/constants.js";
+import { clearDiscoveryCache } from "../utils/discovery-context.js";
 import { completeEnvFile, ensureEnvFile, validateEnvFile } from "../utils/env-validator.js";
 import { errorFactories, runCommand, showErrorAndExit } from "../utils/errors.js";
 import { ensureDirectory, ensureGitignore, writeJsonFile } from "../utils/file-helpers.js";
@@ -34,9 +35,12 @@ import { isPathSafe } from "../utils/validation.js";
  * `should_enable()` - without it, `tdk up` would launch infra only and no
  * app services would come up, however many the repo actually has.
  */
-function discoverExistingServiceStacks(projectRoot: string): string[] {
+function discoverExistingServiceStacks(
+  projectRoot: string,
+  resources?: DiscoveredResource[],
+): string[] {
   try {
-    return discoverStackNames(projectRoot);
+    return discoverStackNames(projectRoot, resources);
   } catch {
     return [];
   }
@@ -77,14 +81,17 @@ function syncDiscoveredStacksToPreAlpha(
  * pre_alpha, so a resource scaffolded after `tdk project` is picked up by
  * `tdk up` without re-running `tdk project`. Returns the stacks it enabled.
  */
-export function enableDiscoveredStacks(projectRoot: string): string[] {
+export function enableDiscoveredStacks(
+  projectRoot: string,
+  resources?: DiscoveredResource[],
+): string[] {
   const projectJsonPath = join(projectRoot, ".tdk", PROJECT_JSON);
   if (!existsSync(projectJsonPath)) return [];
 
   const projectConfig = readProjectConfig(projectRoot);
   const enabled = syncDiscoveredStacksToPreAlpha(
     projectConfig,
-    discoverExistingServiceStacks(projectRoot),
+    discoverExistingServiceStacks(projectRoot, resources),
   );
   if (enabled.length > 0) {
     writeJsonFile(projectJsonPath, projectConfig);
@@ -158,6 +165,8 @@ async function cloneProjectTemplate(templateName: string, targetDir?: string): P
         : "git clone failed. Check you have git installed and network access.",
     );
   }
+
+  clearDiscoveryCache();
 
   console.log(chalk.green(`\n✅ Cloned "${templateName}" into ${dirName}/`));
   showDetail("\nNext steps:", 0);

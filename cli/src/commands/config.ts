@@ -16,6 +16,7 @@ import type { ProjectConfig } from "../types/index.js";
 import { isMasterConfigFileName } from "../types/index.js";
 import { assertValid, handleDryRun } from "../utils/command-helpers.js";
 import { MASTER_CONFIG_FILES, PROJECT_JSON } from "../utils/constants.js";
+import { clearDiscoveryCache } from "../utils/discovery-context.js";
 import { checkPrismaConsistency } from "../utils/doctor-wiring.js";
 import { errorFactories, requireProjectRoot, runCommand } from "../utils/errors.js";
 import { writeJsonFile } from "../utils/file-helpers.js";
@@ -25,7 +26,11 @@ import {
   SERVICE_MANIFEST_SCHEMA_VERSION,
   validateServiceManifest,
 } from "../utils/service-manifest.js";
-import { discoverServiceManifestPaths } from "../utils/services.js";
+import {
+  discoverResourcesWithProblems,
+  discoverServiceManifestPaths,
+  warnAboutSkippedFiles,
+} from "../utils/services.js";
 import { evaluateSharedPlatformPostgres } from "../utils/shared-platform-postgres.js";
 import { validateOptionalInfraService } from "../utils/validation.js";
 
@@ -218,6 +223,9 @@ export const configCommand = new Command("config")
           for (const migration of pendingMigrations) {
             writeFileSync(migration.filePath, `${JSON.stringify(migration.manifest, null, 2)}\n`);
           }
+          if (pendingMigrations.length > 0) {
+            clearDiscoveryCache();
+          }
           const migrated = pendingMigrations.length;
           console.log(
             chalk.green(
@@ -237,10 +245,16 @@ export const configCommand = new Command("config")
           const projectRoot = options.json ? findProjectRoot() : requireProjectRoot();
           if (!projectRoot) throw errorFactories.notInProject();
 
-          const result = verifyMasterConfigs(projectRoot);
+          const { resources, problems } = discoverResourcesWithProblems(projectRoot);
+          warnAboutSkippedFiles(problems);
+          const manifestPaths = [
+            ...resources.map((r) => r.configPath),
+            ...problems.map((p) => p.path),
+          ];
+          const result = verifyMasterConfigs(projectRoot, { manifestPaths });
           // Same predicate as tdk doctor's Shared platform Postgres check.
-          const sharedPostgres = evaluateSharedPlatformPostgres(projectRoot);
-          const prismaConsistency = checkPrismaConsistency(projectRoot);
+          const sharedPostgres = evaluateSharedPlatformPostgres(projectRoot, resources);
+          const prismaConsistency = checkPrismaConsistency(projectRoot, resources);
           const sharedPostgresErrors = sharedPostgres.unknownDependsOnNames.map(
             ({ resource, name }) =>
               `dependsOn "${name}" on ${resource} is not a known service or stack (shared platform Postgres names are postgres and database-management)`,

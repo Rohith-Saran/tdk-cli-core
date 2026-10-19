@@ -9,6 +9,7 @@ import chalk from "chalk";
 import { Command } from "commander";
 import { generateMasterConfigs, readProjectConfig } from "../generator/template-engine.js";
 import { MASTER_CONFIG_FILES, PROJECT_JSON } from "../utils/constants.js";
+import { clearDiscoveryCache } from "../utils/discovery-context.js";
 import { completeEnvFile, ensureEnvFile, validateEnvFile } from "../utils/env-validator.js";
 import { errorFactories, runCommand, showErrorAndExit } from "../utils/errors.js";
 import { ensureDirectory, ensureGitignore, writeJsonFile } from "../utils/file-helpers.js";
@@ -26,9 +27,9 @@ import { isPathSafe } from "../utils/validation.js";
  * `should_enable()` - without it, `tdk up` would launch infra only and no
  * app services would come up, however many the repo actually has.
  */
-function discoverExistingServiceStacks(projectRoot) {
+function discoverExistingServiceStacks(projectRoot, resources) {
     try {
-        return discoverStackNames(projectRoot);
+        return discoverStackNames(projectRoot, resources);
     }
     catch {
         return [];
@@ -57,12 +58,12 @@ function syncDiscoveredStacksToPreAlpha(projectConfig, discoveredStacks) {
  * pre_alpha, so a resource scaffolded after `tdk project` is picked up by
  * `tdk up` without re-running `tdk project`. Returns the stacks it enabled.
  */
-export function enableDiscoveredStacks(projectRoot) {
+export function enableDiscoveredStacks(projectRoot, resources) {
     const projectJsonPath = join(projectRoot, ".tdk", PROJECT_JSON);
     if (!existsSync(projectJsonPath))
         return [];
     const projectConfig = readProjectConfig(projectRoot);
-    const enabled = syncDiscoveredStacksToPreAlpha(projectConfig, discoverExistingServiceStacks(projectRoot));
+    const enabled = syncDiscoveredStacksToPreAlpha(projectConfig, discoverExistingServiceStacks(projectRoot, resources));
     if (enabled.length > 0) {
         writeJsonFile(projectJsonPath, projectConfig);
     }
@@ -125,6 +126,7 @@ async function cloneProjectTemplate(templateName, targetDir) {
             ? "Bundled example copy failed. Reinstall the TDK CLI package and try again."
             : "git clone failed. Check you have git installed and network access.");
     }
+    clearDiscoveryCache();
     console.log(chalk.green(`\n✅ Cloned "${templateName}" into ${dirName}/`));
     showDetail("\nNext steps:", 0);
     showDetail(`1. cd ${dirName}`);
