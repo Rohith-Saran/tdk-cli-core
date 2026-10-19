@@ -17,6 +17,7 @@ import { promptConfirm } from "../utils/prompt.js";
 import { startSpinner } from "../utils/spinner.js";
 import { extractTarball } from "../utils/tar.js";
 import { findAllOnPath, findOnPath } from "../utils/which.js";
+/** @internal Exported for unit tests only; not part of the package API. */
 export function isStandaloneBinary(tdkPath) {
     if (isWindows() && tdkPath.toLowerCase().endsWith(".exe"))
         return true;
@@ -29,6 +30,7 @@ export function isStandaloneBinary(tdkPath) {
         return false;
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function classifyRunningInstall(execPath, scriptPath, platformName = process.platform) {
     const runningName = (platformName === "win32" ? win32.basename(execPath) : basename(execPath)).toLowerCase();
     if (runningName === "tdk" || runningName === "tdk.exe") {
@@ -42,11 +44,13 @@ export function classifyRunningInstall(execPath, scriptPath, platformName = proc
     }
     return null;
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function windowsNpmUpgradeMessage(platformName, installInfo) {
     return platformName === "win32" && installInfo.method === "npm"
         ? "use npm install -g @tdk-landscape/tdk-cli-core@latest"
         : null;
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function detectInstallation() {
     const runningPath = process.execPath;
     const runningInstall = classifyRunningInstall(runningPath, process.argv[1] ?? "");
@@ -89,6 +93,7 @@ export function detectInstallation() {
         return { method: "unknown" };
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function detectInstallationForPath(tdkPath) {
     try {
         const realPath = realpathSync(tdkPath);
@@ -109,6 +114,7 @@ export function detectInstallationForPath(tdkPath) {
     }
     return { method: "unknown", path: tdkPath };
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function detectAllInstallations() {
     const candidates = findAllOnPath(executableName()).map(detectInstallationForPath);
     const current = detectInstallation();
@@ -132,6 +138,7 @@ const BINARY_RELEASE_REPO = "tdk-landscape/tdk-cli-releases";
 const ENGINE_ASSET_NAME = "tdk-cli-engine.tar.gz";
 const CHECKSUMS_ASSET_NAME = "checksums.txt";
 /** Parses `shasum -a 256` / `sha256sum` output ("<hash>  <name>" or "<hash> *<name>"). */
+/** @internal Exported for unit tests only; not part of the package API. */
 export function parseChecksums(text) {
     const sums = new Map();
     for (const line of text.split("\n")) {
@@ -160,6 +167,7 @@ function verifyChecksum(filePath, assetName, sums, required) {
         throw new Error(`${isWindows() ? "checksum mismatch" : "Checksum mismatch"} for ${assetName} (expected ${expected}, got ${actual})`);
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function getLatestBinaryRelease() {
     const assetName = binaryAssetName();
     if (!assetName)
@@ -186,10 +194,12 @@ export async function getLatestBinaryRelease() {
         return null;
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function isPermissionError(err) {
     const code = err?.code;
     return code === "EACCES" || code === "EPERM";
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function isWritable(path) {
     try {
         accessSync(path, constants.W_OK);
@@ -199,6 +209,7 @@ export function isWritable(path) {
         return false;
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaBinary(tdkPath, release) {
     // Never shells out to sudo - if the install dir isn't user-writable, fail
     // fast with the manual curl command instead of downloading first and
@@ -302,6 +313,7 @@ export async function upgradeViaBinary(tdkPath, release) {
         rmSync(tempDir, { recursive: true, force: true });
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function getCurrentVersion() {
     try {
         return getPackageVersion();
@@ -311,6 +323,7 @@ export function getCurrentVersion() {
         return "unknown";
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function getLatestVersion() {
     const spinner = startSpinner("Checking for latest version...");
     try {
@@ -344,6 +357,7 @@ export async function getLatestVersion() {
         return null;
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaNpm() {
     const spinner = startSpinner("Upgrading via npm...");
     try {
@@ -377,6 +391,7 @@ export async function upgradeViaNpm() {
         return false;
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaBun() {
     const spinner = startSpinner("Upgrading via bun...");
     try {
@@ -395,6 +410,7 @@ export async function upgradeViaBun() {
         return false;
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeAllInstallations(dryRun) {
     const installations = detectAllInstallations();
     if (!installations.length) {
@@ -461,6 +477,7 @@ export async function upgradeAllInstallations(dryRun) {
         console.error(chalk.red("\nAt least one TDK installation could not be updated."));
     return success;
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaGit(path) {
     const spinner = startSpinner("Updating the git installation from the default branch...");
     let rebaseInProgress = false;
@@ -559,6 +576,7 @@ export async function upgradeViaGit(path) {
         return false;
     }
 }
+/** @internal Exported for unit tests only; not part of the package API. */
 export function createUpgradeCommand() {
     return new Command("upgrade")
         .alias("update")

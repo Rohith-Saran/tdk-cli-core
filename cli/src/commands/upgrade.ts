@@ -29,12 +29,14 @@ import { startSpinner } from "../utils/spinner.js";
 import { extractTarball } from "../utils/tar.js";
 import { findAllOnPath, findOnPath } from "../utils/which.js";
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export interface InstallInfo {
   method: "npm" | "bun" | "git" | "binary" | "unknown";
   path?: string;
   version?: string;
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function isStandaloneBinary(tdkPath: string): boolean {
   if (isWindows() && tdkPath.toLowerCase().endsWith(".exe")) return true;
   try {
@@ -46,6 +48,7 @@ export function isStandaloneBinary(tdkPath: string): boolean {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function classifyRunningInstall(
   execPath: string,
   scriptPath: string,
@@ -66,6 +69,7 @@ export function classifyRunningInstall(
   return null;
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function windowsNpmUpgradeMessage(
   platformName: string,
   installInfo: InstallInfo,
@@ -75,6 +79,7 @@ export function windowsNpmUpgradeMessage(
     : null;
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function detectInstallation(): InstallInfo {
   const runningPath = process.execPath;
   const runningInstall = classifyRunningInstall(runningPath, process.argv[1] ?? "");
@@ -120,6 +125,7 @@ export function detectInstallation(): InstallInfo {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function detectInstallationForPath(tdkPath: string): InstallInfo {
   try {
     const realPath = realpathSync(tdkPath);
@@ -139,6 +145,7 @@ export function detectInstallationForPath(tdkPath: string): InstallInfo {
   return { method: "unknown", path: tdkPath };
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function detectAllInstallations(): InstallInfo[] {
   const candidates = findAllOnPath(executableName()).map(detectInstallationForPath);
   const current = detectInstallation();
@@ -160,6 +167,7 @@ const BINARY_RELEASE_REPO = "tdk-landscape/tdk-cli-releases";
 const ENGINE_ASSET_NAME = "tdk-cli-engine.tar.gz";
 const CHECKSUMS_ASSET_NAME = "checksums.txt";
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export interface BinaryRelease {
   tag: string;
   assetName: string;
@@ -169,6 +177,7 @@ export interface BinaryRelease {
 }
 
 /** Parses `shasum -a 256` / `sha256sum` output ("<hash>  <name>" or "<hash> *<name>"). */
+/** @internal Exported for unit tests only; not part of the package API. */
 export function parseChecksums(text: string): Map<string, string> {
   const sums = new Map<string, string>();
   for (const line of text.split("\n")) {
@@ -204,6 +213,7 @@ function verifyChecksum(
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function getLatestBinaryRelease(): Promise<BinaryRelease | null> {
   const assetName = binaryAssetName();
   if (!assetName) return null;
@@ -232,11 +242,13 @@ export async function getLatestBinaryRelease(): Promise<BinaryRelease | null> {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function isPermissionError(err: unknown): boolean {
   const code = (err as NodeJS.ErrnoException | undefined)?.code;
   return code === "EACCES" || code === "EPERM";
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function isWritable(path: string): boolean {
   try {
     accessSync(path, constants.W_OK);
@@ -246,6 +258,7 @@ export function isWritable(path: string): boolean {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaBinary(tdkPath: string, release: BinaryRelease): Promise<boolean> {
   // Never shells out to sudo - if the install dir isn't user-writable, fail
   // fast with the manual curl command instead of downloading first and
@@ -352,6 +365,7 @@ export async function upgradeViaBinary(tdkPath: string, release: BinaryRelease):
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function getCurrentVersion(): string {
   try {
     return getPackageVersion();
@@ -361,6 +375,7 @@ export function getCurrentVersion(): string {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function getLatestVersion(): Promise<string | null> {
   const spinner = startSpinner("Checking for latest version...");
 
@@ -395,6 +410,7 @@ export async function getLatestVersion(): Promise<string | null> {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaNpm(): Promise<boolean> {
   const spinner = startSpinner("Upgrading via npm...");
 
@@ -444,6 +460,7 @@ export async function upgradeViaNpm(): Promise<boolean> {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaBun(): Promise<boolean> {
   const spinner = startSpinner("Upgrading via bun...");
 
@@ -467,6 +484,7 @@ export async function upgradeViaBun(): Promise<boolean> {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeAllInstallations(dryRun: boolean): Promise<boolean> {
   const installations = detectAllInstallations();
   if (!installations.length) {
@@ -536,6 +554,7 @@ export async function upgradeAllInstallations(dryRun: boolean): Promise<boolean>
   return success;
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export async function upgradeViaGit(path: string): Promise<boolean> {
   const spinner = startSpinner("Updating the git installation from the default branch...");
   let rebaseInProgress = false;
@@ -647,6 +666,7 @@ export async function upgradeViaGit(path: string): Promise<boolean> {
   }
 }
 
+/** @internal Exported for unit tests only; not part of the package API. */
 export function createUpgradeCommand(): Command {
   return new Command("upgrade")
     .alias("update")
