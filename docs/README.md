@@ -15,6 +15,7 @@
 - [Operator runbook](operator-runbook.md): install matrix, version minimums, releases, license key
 - [WSL2 setup](wsl2.md)
 - [Windows hardware checks](windows-hardware.md): what the Windows e2e suites cover, what a real Windows machine adds, and how to run them
+- [Native Windows runtime decision](design/native-windows-runtime-decision.md): RFC #1757 evaluation, blocker spike, maintainers' decision, and acceptance matrix
 - [Install and use Flisk alongside Helm](with-helm.md)
 
 ## Understand Flisk
