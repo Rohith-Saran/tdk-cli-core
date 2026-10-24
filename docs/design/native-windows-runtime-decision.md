@@ -73,7 +73,7 @@ A thorough spike evaluated the mechanical and orchestration differences between 
 **Decision:** **Maintain the inspection-only boundary on native Windows AMD64. Do not support native Windows runtime execution (`flisk up`) at this time.**
 
 ### Rationale:
-1. **WSL2 Ubuntu Provides a Superior Experience:** Docker Desktop on Windows already runs its container engine inside a WSL2 lightweight utility VM. Developing directly within Ubuntu in WSL2 gives developers 100% native POSIX signals, inotify file watching, standard Unix domain sockets, and native container filesystem performance without impedance mismatches.
+1. **WSL2 Ubuntu Provides a Superior Experience:** Docker Desktop on Windows already runs its container engine inside a WSL2 lightweight utility VM. Developing within Ubuntu in WSL2 (with the working repository stored in the WSL2 Linux filesystem rather than Windows-mounted `/mnt/c/...` paths) gives developers native POSIX signals, inotify file watching, standard Unix domain sockets, and Linux-equivalent container filesystem performance without impedance mismatches.
 2. **Predictability and Reliability (Principle of #661):** Per Flisk's guiding principle *"Do not make TDK bigger. Make TDK trustworthy."*, supporting native Windows runtime execution would require continuous maintenance of an extensive compatibility layer (Starlark POSIX emulation, Windows Job Object cancellation, volume mount translation, DNS workarounds) that adds significant fragility.
 3. **Inspection and Scaffolding Remain First-Class:** Native Windows developers can install the official binary, run diagnostics (`flisk doctor`), scaffold projects (`flisk project`), inspect dry-run plans (`flisk up --dry-run`), and install completions. When ready to boot the stack, they transition seamlessly to Ubuntu in WSL2.
 4. **Unsupported Escape Hatch Preserved:** For developers and contributors conducting experiments, `TDK_ALLOW_NATIVE_WINDOWS=1` remains in place to bypass the refusal check without changing official support guarantees.
@@ -91,7 +91,7 @@ If user demand or upstream ecosystem shifts (e.g., Tilt native Starlark executio
 | **G3** | **Filesystem** | Volume mounts must reliably map Windows paths (including paths with spaces) to Linux container targets without file lock contention. | Live reload test verifying bidirectional sync. |
 | **G4** | **Networking** | Wildcard `*.localhost` routing must resolve cleanly to ingress ports without requiring administrator privileges or manual `hosts` editing. | End-to-end HTTP routing verification test. |
 | **G5** | **Ports** | Automatic port fallback must cleanly navigate Hyper-V excluded port ranges and IIS collisions without hanging. | Dynamic port allocation verification test. |
-| **G6** | **CI Gate** | A dedicated Windows live-stack CI workflow on a real or self-hosted Windows 11 AMD64 machine must run `flisk up` and pass all service health checks. | Automated pass in `.github/workflows/e2e-platforms-hardware.yml`. |
+| **G6** | **CI Gate** | A dedicated Windows live-stack CI workflow on a real or self-hosted Windows 11 AMD64 machine must run `flisk up` and pass all service health checks. | Not implemented by the current workflow; `.github/workflows/e2e-platforms-hardware.yml` currently runs the WH1–WH6 installation, refusal, and path checks. |
 
 ---
 
